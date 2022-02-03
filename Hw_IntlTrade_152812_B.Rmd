@@ -1,0 +1,661 @@
+---
+title: "International Trade I: Assignment 1"
+author:  "Luis Gerardo Martínez Valdés 000152812"
+date: "Fall 2021"
+output: pdf_document
+number_sections: TRUE
+---
+
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(ggcorrplot)
+library(ggplot2)
+library(expm)
+library(pracma)
+library(mFilter)
+library(zoo)
+```
+
+# 1. Patterns of Trade
+
+## (a)
+### (i)
+```{r,results=FALSE, message =FALSE, warning= FALSE}
+# Reading and Wrangling DATA
+dataex1<- read.csv('/Volumes/External/EconIntl/WorldBankDataMex.csv') %>% 
+  slice(-c(6:10)) # Deleting NA rows
+dataex1<- dataex1[-c(1:4)] #Deleteng first 3 columns
+
+names(dataex1)<- c(1960:2020) #Changin names in data frame
+
+# Variable Handling
+GDP<- dataex1[1, ]
+exports<- dataex1[2, ]      #Merchandise Exports
+imports<- dataex1[3, ]      #Merchandise Imports
+gsExports<- dataex1[4, ]    #Goods and services Exports
+gsImports<- dataex1[5, ]    #Goods and services Imports
+```
+
+
+Let's take a closer look at the ratios: 
+
+```{r,results=TRUE, message =FALSE, warning= FALSE}
+# Ratios 
+exportstoGDP <- t(exports / GDP)
+importstoGDP <- t(imports / GDP)
+merged_merch_GDP <- t((exports  + imports) / GDP)
+merged_merch <- data.frame(exportstoGDP, importstoGDP, merged_merch_GDP)
+
+#Before NAFTA
+(r1.B_NAFTA <- round(mean(merged_merch_GDP[as.character(c(1960:1993)), ]),4))
+(r2.B_NAFTA <- round(mean(exportstoGDP[as.character(c(1960:1993)), ]),4))
+(r3.B_NAFTA <- round(mean(importstoGDP[as.character(c(1960:1993)), ]),4))
+#After NAFTA
+(r1.A_NAFTA <- round(mean(merged_merch_GDP[as.character(c(1994:2011)), ]),4))
+(r2.A_NAFTA <- round(mean(exportstoGDP[as.character(c(1994:2011)), ]),4))
+(r3.A_NAFTA <- round(mean(importstoGDP[as.character(c(1994:2011)), ]),4))
+
+```
+
+
+Lets'plot: 
+
+```{r, echo= FALSE,fig.width= 12.5, fig.height= 9.5,results=FALSE, message =FALSE, warning= FALSE}
+#Plotting Ratios
+colours <-
+  c(
+    'Merchandise trade to GDP' = 'tomato',
+    'Merchandise exports to GDP' = 'dodgerblue3',
+    'Merchandise imports to GDP' = 'black'
+  )
+# Plot
+ggplot(merged_merch) +
+  geom_line(aes(
+    x = as.numeric(row.names(merged_merch)),
+    y = merged_merch_GDP,
+    colour = 'Merchandise trade to GDP'
+   ))+geom_point(aes(
+     x = as.numeric(row.names(merged_merch)),
+     y = merged_merch_GDP,
+     colour = 'Merchandise trade to GDP'
+   )) + 
+  geom_line(aes(
+    x = as.numeric(row.names(merged_merch)),
+    y = exportstoGDP,
+    colour = 'Merchandise exports to GDP'
+  )) + geom_point(aes(
+    x = as.numeric(row.names(merged_merch)),
+    y = exportstoGDP,
+    colour = 'Merchandise exports to GDP'
+  )) +
+  geom_line(aes(
+    x = as.numeric(row.names(merged_merch)),
+    y = importstoGDP,
+    colour = 'Merchandise imports to GDP'
+  )) + geom_point(aes(
+    x = as.numeric(row.names(merged_merch)),
+    y = importstoGDP,
+    colour = 'Merchandise imports to GDP'
+  )) +
+  geom_segment(
+    aes(
+      x = 1960,
+      xend = 1993,
+      y = r1.B_NAFTA,
+      yend = r1.B_NAFTA,
+      colour = 'Merchandise trade to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1994,
+      xend = 2011,
+      y = r1.A_NAFTA,
+      yend = r1.A_NAFTA,
+      colour = 'Merchandise trade to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1960,
+      xend = 1993,
+      y = r2.B_NAFTA,
+      yend = r2.B_NAFTA,
+      colour = 'Merchandise exports to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1994,
+      xend = 2011,
+      y = r2.A_NAFTA,
+      yend = r2.A_NAFTA,
+      colour = 'Merchandise exports to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1960,
+      xend = 1993,
+      y = r3.B_NAFTA,
+      yend = r3.B_NAFTA,
+      colour = 'Merchandise imports to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1994,
+      xend = 2011,
+      y = r3.A_NAFTA,
+      yend = r3.A_NAFTA,
+      colour = 'Merchandise imports to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  scale_x_continuous(breaks = seq(1960, 2020, by = 10)) +
+  labs(x = 'Year', y = 'Ratio') +
+  scale_colour_manual(name = 'Ratios', values = colours) +
+  theme_minimal()
+
+```
+
+Mexico started to liberalize trade since the mid 80's and in 1994 the beginning of NAFTA had a huge impact on how trade developed over its tenure. We can see that, practically, since 1997 Mexico has incurred in a trade deficit with respecto to the rest of the world, except in 2019-2020; this means, in overall Mexico was borrowing from the rest of the world experiencing moderate grwoth rates. Clearly, our greatest trading partner has been the U.S. accounting for a total of $614.5 billion USD in total (two way) goods trade during 2019. 
+
+
+### (ii) 
+|         Ratios                      |  Before NAFTA     |    After NAFTA |
+|:------------------                  |:-------------     |:------------   |
+|  Merchandise trade to GDP           |  `r r1.B_NAFTA`   | `r r1.A_NAFTA` |
+|  Merchandise imports to GDP         |  `r r3.B_NAFTA`   | `r r3.A_NAFTA` |
+|  Merchandise exports to GDP         |  `r r2.B_NAFTA`   | `r r2.A_NAFTA` |
+
+
+Primarily, Mexico was particullarly invested in 'oil', accounting for 75% of total exports by 1978. Monetary and Fiscal policy were characterized by contractionist and protectionism flourished in this period. Mexico was enjoying the fruits of the "Mexican Miracle". As inflation ran uncontrolled towards the sky, crisis struck and a new economic model had to be implmented, this new model led to the signing of NAFTA, implying that the ratio of merchandise trade would increase almost two-fold, 
+imports were given a more important role, as imports-substitution model showed its failures, oil-linked exports decreased and overall merchandise exports increade over NAFTA's tenure. 
+
+NAFTA's has been harshly critized by the government in power due to its "inclination or favoritism" towards foreing goods and foreing capital and has been replaced by USMCA.
+
+
+### (iii)
+
+```{r, results TRUE, warning=FALSE }
+#Variable Handling
+serviceExports<- gsExports - exports
+serviceImports<- gsImports - imports
+serv_XtoGDP <- t(serviceExports/GDP)
+serv_ImtoGDP <- t(serviceImports/GDP)
+servicesToGDP<- t((serviceExports+serviceImports)/GDP)
+merged_services<- data.frame(serv_XtoGDP,serv_ImtoGDP,servicesToGDP)
+
+#Before NAFTA
+(r1servs.B_NAFTA<- mean(servicesToGDP[as.character(c(1960:1993)), ]))
+(r2servs.B_NAFTA<- mean(serv_XtoGDP[as.character(c(1960:1993)), ]))
+(r3servs.B_NAFTA<- mean(serv_ImtoGDP[as.character(c(1960:1993)), ]))
+
+#After NAFTA (1994-2011)
+(r1servs.A_NAFTA<- mean(servicesToGDP[as.character(c(1994:2011)), ]))
+(r2servs.A_NAFTA<- mean(serv_XtoGDP[as.character(c(1994:2011)), ]))
+(r3servs.A_NAFTA<- mean(serv_ImtoGDP[as.character(c(1994:2011)), ]))
+
+```
+
+
+Let's plot: 
+
+```{r, echo= FALSE,fig.width= 14, fig.height= 8,results=FALSE, message =FALSE, warning= FALSE }
+# Plot
+ggplot(merged_services) +
+  geom_line(aes(
+    x = as.numeric(row.names(merged_services)),
+    y = servicesToGDP,
+    colour = 'Services trade to GDP'
+  )) +geom_point(aes(
+    x = as.numeric(row.names(merged_services)),
+    y = servicesToGDP,
+    colour = 'Services trade to GDP'
+  ))+
+  geom_line(aes(
+    x = as.numeric(row.names(merged_services)),
+    y = serv_XtoGDP,
+    colour = 'Services exports to GDP'
+  ))+ geom_point(aes(
+    x = as.numeric(row.names(merged_services)),
+    y = serv_XtoGDP,
+    colour = 'Services exports to GDP'
+  ))+
+  geom_line(aes(
+    x = as.numeric(row.names(merged_services)),
+    y = serv_ImtoGDP,
+    colour = 'Services imports to GDP'
+  ))+geom_point(aes(
+    x = as.numeric(row.names(merged_services)),
+    y = serv_ImtoGDP,
+    colour = 'Services imports to GDP'
+  ))+
+  geom_segment(
+    aes(
+      x = 1960,
+      xend = 1993,
+      y = r1servs.B_NAFTA,
+      yend = r1servs.B_NAFTA,
+      colour = 'Services trade to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1994,
+      xend = 2011,
+      y = r1servs.A_NAFTA,
+      yend = r1servs.A_NAFTA,
+      colour = 'Services trade to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1960,
+      xend = 1993,
+      y = r2servs.B_NAFTA,
+      yend = r2servs.B_NAFTA,
+      colour = 'Services exports to GDP'
+    ),
+    linetype = 'dotted'
+  ) +
+  geom_segment(
+    aes(
+      x = 1994,
+      xend = 2011,
+      y = r2servs.A_NAFTA,
+      yend = r2servs.A_NAFTA,
+      colour = 'Services exports to GDP'
+    ),
+    linetype = 'dotted'
+  )+
+  geom_segment(
+    aes(
+      x = 1960,
+      xend = 1993,
+      y = r3servs.B_NAFTA,
+      yend = r3servs.B_NAFTA,
+      colour = 'Services imports to GDP'
+    ),
+    linetype = 'dotted'
+  )+
+  geom_segment(
+    aes(
+      x = 1994,
+      xend = 2011,
+      y = r3servs.A_NAFTA,
+      yend = r3servs.A_NAFTA,
+      colour = 'Services imports to GDP'
+    ),
+    linetype = 'dotted'
+  )+theme_minimal()+labs(x = 'Year', y = 'Ratio')
+
+```
+
+
+|         Ratios                      |  Before NAFTA          |    After NAFTA      |
+|:------------------                  |:-------------          |:------------        |
+|  Services trade to GDP              |  `r r1servs.B_NAFTA`   | `r r1servs.A_NAFTA` |
+|  Services Exports to GDP            |  `r r2servs.B_NAFTA`   | `r r2servs.A_NAFTA` |
+|  Services Imports to GDP            |  `r r3servs.B_NAFTA`   | `r r3servs.A_NAFTA` |
+
+Services (sepcially banking) was held by private capital since their conception, few banks were state-held. It's easy to see that services never had a huge impact on GDP(never passed 10%), however we can observe the impact of the nationalization of banks in 1982, services ratio to GDP fell, includign exports and imports. Liberalization of trade, implying the inflow of services to Mexico had an importante recovery since the mid 80's and has been stable up until 2018. The decrease in services to GDP ratio observed in 2008 is primarily due to 2008-2009 global economic crisis. 
+
+
+## (b)
+```{r,results=FALSE, message =FALSE, warning= FALSE}
+# Reading and Wrangling DATA
+dataex1b<- read.csv('/Volumes/External/EconIntl/MexicoTrade_WITS_DATA.csv')
+X.1993 <-
+  dataex1b %>% filter(Year == '1993' &
+                      TradeFlowName == 'Export') %>% 
+  select(c('TradeValue.in.1000.USD', 'ProductDescription')) %>% 
+  arrange(desc(TradeValue.in.1000.USD))
+Im.1993 <-
+  dataex1b %>% filter(Year == '1993' &
+                      TradeFlowName == 'Import') %>% 
+  select(c('TradeValue.in.1000.USD', 'ProductDescription')) %>% 
+  arrange(desc(TradeValue.in.1000.USD))
+X.2007 <-
+  dataex1b %>% filter(Year == '2007' &
+                      TradeFlowName == 'Export') %>% 
+  select(c('TradeValue.in.1000.USD', 'ProductDescription')) %>% 
+  arrange(desc(TradeValue.in.1000.USD))
+Im.2007 <-
+  dataex1b %>% filter(Year == '2007' &
+                      TradeFlowName == 'Import') %>% 
+  select(c('TradeValue.in.1000.USD', 'ProductDescription')) %>% 
+  arrange(desc(TradeValue.in.1000.USD))
+```
+
+```{r, echo=FALSE,warning=FALSE,results=FALSE, message=FALSE}
+deltaX <-
+  merge(X.1993, X.2007, by = 'ProductDescription')
+deltaX <-
+  deltaX %>% add_column(
+    change_percent = (
+      deltaX$TradeValue.in.1000.USD.y / deltaX$TradeValue.in.1000.USD.x
+    ) - 1
+  ) %>% arrange(desc(change_percent))
+deltaIm <-
+  merge(Im.1993, Im.2007, by = 'ProductDescription')
+deltaIm <-
+  deltaIm %>% add_column(
+    change_percent = (
+      deltaIm$TradeValue.in.1000.USD.y / deltaIm$TradeValue.in.1000.USD.x
+    ) - 1
+  )  %>% arrange(desc(change_percent))
+
+```
+
+
+### (i) 
+
+Top 10 Commodity Exports in 1993(in $1000xUSD): 
+```{r}
+kable(
+  head(X.1993, 10),
+  col.names = c('Traded Value($)', 'Product'),
+  align = 'cl'
+)
+```
+
+Top 10 Commodity Exports in 2007(in $1000xUSD):
+```{r}
+kable(
+  head(X.2007, 10),
+  col.names = c('Traded value($)', 'Product'),
+  align = 'cl'
+)
+```
+
+Mexican main exports were always linke to oil-products, however they have steadily decreased since NAFTA took over. Television recievers came to be an important part of exports since NAFTA, as do passenger cars and parts. NAFTA affected largely the mexican supply of crude oil to the world, reflecting on almost a 50\% decrease from 1993 to 2007. 
+
+
+### (ii)
+
+Top 10 Commodity Imports in 1993 (in $1000xUSD) :
+```{r}
+kable(
+  head(Im.1993, 10),
+  col.names = c('Trade value in $$1000$USD', 'Product'),
+  align = 'cl'
+)
+```
+
+
+Top 10 Commodity Imports in 2007 (in $1000xUSD):
+```{r}
+kable(
+  head(Im.2007, 10),
+  col.names = c('Trade value in $$1000$USD', 'Product'),
+  align = 'cl'
+)
+```
+
+
+The expansion of trade since NAFTA has resulted in the creation of vertical supply relationships, especially along the U.S.-Mexico border. The flow of intermediate inputs produced in the United States and exported to Mexico and the return flow of finished products greatly increased the importance of the U.S.-Mexico border region as a production site. U.S. manufacturing industries, including automotive, electronics, appliances, and machinery, all rely on the assistance of Mexican manufacturers.
+
+
+### (iii)
+
+Top 10 commodities with greatest \% growth in exports:
+```{r}
+kable(
+  head(deltaX, 10),
+  col.names = c('Product', 'Trade value in 1993', 'Trade value in 2007', 'Percentage change (%)'),
+  align = 'lrrr'
+)
+```
+
+Top 10 commodities with greatest % growth in imports:
+```{r}
+kable(
+  head(deltaIm, 10),
+  col.names = c('Product', 'Trade value in 1993', 'Trade value in 2007', 'Percentage change (%)'),
+  align = 'lrrr'
+)
+```
+
+
+### (iv)
+```{r, echo=FALSE,warning=FALSE,message=FALSE, fig.height=5, fig.width=8}
+colours <-
+  c('Exports' = 'tomato',
+    'Imports' = 'dodgerblue3')
+ggplot() + geom_point(aes(
+    x = deltaX$TradeValue.in.1000.USD.x,
+    y = deltaX$change_percent,
+    colour = 'Exports'
+  )
+)+
+  geom_point(
+    aes(
+      x = deltaIm$TradeValue.in.1000.USD.x,
+      y = deltaIm$change_percent,
+      colour = 'Imports'
+    )
+  ) +
+  scale_x_continuous(trans = 'log10') +
+  scale_y_continuous(trans = 'log10') +
+  labs(caption = '(log scale)',
+       x = 'YEAR',
+       y = 'Percentage change (%)') +
+  scale_colour_manual(name = '', values = colours) +
+  theme_minimal()
+```
+
+### (v)
+
+```{r, echo=FALSE,results=TRUE, warning=FALSE,message=FALSE}
+X.correlations<- c(cor(deltaX$TradeValue.in.1000.USD.x,
+      deltaX$change_percent,
+      method = 'pearson'),cor(deltaX$TradeValue.in.1000.USD.x,
+      deltaX$change_percent,
+      method = 'kendall'),cor(deltaX$TradeValue.in.1000.USD.x,
+      deltaX$change_percent,
+      method = 'spearman') )
+Im.correlations<- c(cor(deltaIm$TradeValue.in.1000.USD.x,
+      deltaIm$change_percent,
+      method = 'pearson'),cor(deltaIm$TradeValue.in.1000.USD.x,
+      deltaIm$change_percent,
+      method = 'kendall'),cor(deltaIm$TradeValue.in.1000.USD.x,
+      deltaIm$change_percent,
+      method = 'spearman') )
+
+paste0('Exports correlations: ', X.correlations[1],' ,', X.correlations[2], 
+       ' ,', X.correlations[3]) 
+paste0('Imports correlations: ', Im.correlations[1],' ,', Im.correlations[2], 
+       ' ,', Im.correlations[3])
+
+```
+The order of calculation is: Person, Kendall, Spearman (respectively)
+
+We can see that there is not a statistically significant linear relation between 93's data and their change in \% shown in 2007(this comes from the interpretation of Pearson's correlation). However, there exists a weak monotonocity relationship between observed data given by Spearman; and, a weak/subtle dependency between variables, given by Kendall.
+
+
+# 2. Export and Import Wedges
+
+Using appendix results to log-linearize the model and assuming constant prices in order to get desired results. 
+```{r,echo=FALSE,results=FALSE, warning=FALSE,message=FALSE}
+# Reading and Wrangling DATA
+dataex2<- read.csv('/Volumes/External/EconIntl/OECD_DATA_MEXUSCAN.csv')
+wedges_loglin <-
+  function(country,
+           index,
+           date.1,
+           date.2,
+           date.3,
+           date.4) {
+    data <- dataex2 %>% filter(LOCATION == index)
+    
+    GDP_CQRSA <- data %>%
+      filter(SUBJECT == 'B1_GE',
+             MEASURE == 'CQRSA') %>%
+      subset(select = c('TIME', 'Value'))
+    
+    imports_CQRSA <- data %>%
+      filter(SUBJECT == 'P7',
+             MEASURE == 'CQRSA') %>%
+      subset(select = c('TIME', 'Value'))
+    
+    GDP_DNBSA <- data %>%
+      filter(SUBJECT == 'B1_GE',
+             MEASURE == 'DNBSA') %>%
+      subset(select = c('TIME', 'Value'))
+    
+    imports_DNBSA <- data %>%
+      filter(SUBJECT == 'P7',
+             MEASURE == 'DNBSA') %>%
+      subset(select = c('TIME', 'Value'))
+    
+    # Data
+    
+    GDP <- data.frame(
+      quarter = GDP_CQRSA$TIME,
+      nominal = GDP_CQRSA$Value,
+      real = GDP_CQRSA$Value / GDP_DNBSA$Value,
+      deflactor = GDP_DNBSA$Value / 100
+    )
+    
+    imports <- data.frame(
+      quarter = imports_CQRSA$TIME,
+      nominal = imports_CQRSA$Value,
+      real = imports_CQRSA$Value / imports_DNBSA$Value,
+      deflactor = imports_DNBSA$Value / 100
+    )
+    
+    # log data
+    
+    log_GDP <- data.frame(
+      quarter = GDP$quarter,
+      nominal = log(GDP$nominal),
+      real = log(GDP$real),
+      deflactor = log(GDP$deflactor)
+    )
+    
+    log_imports <- data.frame(
+      quarter = imports$quarter,
+      nominal = log(imports$nominal),
+      real = log(imports$real),
+      deflactor = log(imports$deflactor)
+    )
+    
+    # Linear regression prediction
+    logQ <- log_imports$real - log_GDP$real
+    logX0 <- integer(length = length(logQ)) + 1
+    logX1 <- GDP$deflactor - imports$deflactor
+    
+    X <- cbind(logX0, logX1)
+    
+    # Parameter estimation
+    b <- inv(crossprod(X)) %*% (t(X) %*% logQ)
+    
+    # Prediction
+    logQhat <- X %*% b
+    log_imports$realPredicted <- logQhat + log_GDP$real
+    
+    # Import wedge
+    log_imports$wedge <-
+      log_imports$real - log_imports$realPredicted
+    
+    # wedges_loglined data
+    hp <-
+      hpfilter(log_imports$wedge, freq = 1600, type = 'lambda')
+    log_imports$trend <- hp$trend
+    
+    # Plot
+    colours <- c('Import wedge' = 'tomato',
+                 'Trend' = 'dodgerblue3')
+    
+    graph_wedge <- ggplot() +
+      geom_line(aes(
+        x = as.Date(as.yearqtr(log_imports$quarter, format = '%Y-Q%q')),
+        y = log_imports$wedge,
+        group = 1,
+        colour = 'Import wedge'
+      ))+
+      geom_line(aes(
+        x = as.Date(as.yearqtr(log_imports$quarter, format = '%Y-Q%q')),
+        y = log_imports$trend,
+        group = 1,
+        colour = 'Trend'
+      )) +
+      geom_rect(aes(
+        xmin = as.Date(as.yearqtr(date.1, format = '%Y-Q%q')),
+        xmax = as.Date(as.yearqtr(date.2, format = '%Y-Q%q')),
+        ymin = min(log_imports$wedge),
+        ymax = max(log_imports$wedge)
+      ),
+      alpha = 0.5) +
+      geom_rect(aes(
+        xmin = as.Date(as.yearqtr(date.3, format = '%Y-Q%q')),
+        xmax = as.Date(as.yearqtr(date.4, format = '%Y-Q%q')),
+        ymin = min(log_imports$wedge),
+        ymax = max(log_imports$wedge)
+      ),
+      alpha = 0.5) +
+      labs(title = country,
+           x = '',
+           y = '') +
+      scale_x_date(
+        guide = guide_axis(angle = 90),
+        date_breaks = '1 year',
+        date_labels = '%Y'
+      ) +
+      scale_colour_manual(name = '', values = colours) +
+      theme_minimal()
+    
+    return(graph_wedge)
+  }
+```
+
+```{r , echo=FALSE, warning=FALSE,message=FALSE}
+wedges_loglin(
+    country = 'Mexico',
+    index = 'MEX',
+    date.1 = '1994-Q4',
+    date.2 = '1997-Q3',
+    date.3 = '2008-Q3',
+    date.4 = '2010-Q2'
+)
+
+wedges_loglin(
+    country = 'United States of America',
+    index = 'USA',
+    date.1 = '2001-Q2',
+    date.2 = '2004-Q2',
+    date.3 = '2008-Q3',
+    date.4 = '2010-Q4'
+)
+
+wedges_loglin(
+    country = 'Canada',
+    index = 'CAN',
+    date.1 = '2001-Q2',
+    date.2 = '2002-Q3',
+    date.3 = '2008-Q3',
+    date.4 = '2010-Q3'
+)
+```
+
+
+Trade policy reforms were perhaps the most striking leading Mexico to become one of the most open economy in the world in less than a decade. Therefore, the Mexican economic environment in those years is particularly suitable for trade exposure on/over firms. Given Mexico’s large, diversified market, most U.S. products and services have ample opportunities. The new United States–Mexico–Canada Agreement (USMCA), which replaced the North American Free Trade Agreement (NAFTA) on July 1, 2020, provides additional trade-related benefits for U.S. companies.
+
+
+
+
+
+
+
+

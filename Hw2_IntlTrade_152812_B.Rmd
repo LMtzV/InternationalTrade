@@ -1,0 +1,178 @@
+---
+title: "International Trade I: Assignment 2"
+author:  "Luis Gerardo Martínez Valdés 000152812"
+date: "Fall 2021"
+output: pdf_document
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(ggcorrplot)
+library(ggplot2)
+library(expm)
+library(pracma)
+library(mFilter)
+library(zoo)
+library(tufte)
+
+```
+
+# Theoretical Part
+
+\newpage
+
+# Data Part: Intra-Industry Trade
+
+```{r,echo=FALSE,include=FALSE}
+All_3 <- read.csv('/Volumes/External/EconIntl/All_3.csv') %>%
+    subset(ProductDescription != '  UN Special Code') %>%
+    subset(select = c(
+        'ProductDescription',
+        'TradeFlowCode',
+        'TradeValue.in.1000.USD',
+        'Year'
+    ))
+All_5 <- read.csv('/Volumes/External/EconIntl/All_5.csv') %>%
+    subset(ProductDescription != '  UN Special Code') %>%
+    subset(select = c(
+        'ProductDescription',
+        'TradeFlowCode',
+        'TradeValue.in.1000.USD',
+        'Year'
+    ))
+```
+
+```{r,warning=FALSE,echo=FALSE}
+#Data Wrangling
+industries.All_3 <- unique(All_3$ProductDescription) #By sector/industry
+industries.All_5 <- unique(All_5$ProductDescription) #By sector/industry
+years <- unique(All_5$Year)
+
+#Trade Flow Patterns
+All_3.IM <- All_3 %>% filter(TradeFlowCode == 5)
+All_5.IM <- All_5 %>% filter(TradeFlowCode == 5)
+All_3.X <- All_3 %>% filter(TradeFlowCode == 6)
+All_5.X <- All_5 %>% filter(TradeFlowCode == 6)
+
+#Merging Data into 1 DF
+trade.All_3 <- data.frame('year' = double(),
+                         'prod' = character(),
+                         'ratio' = double())
+
+trade.All_5 <- trade.All_3
+```
+
+```{r}
+#Apply Grubel_Lloyd Index to DF
+#SITC Rev 3
+t1 <- system.time({
+    for (i in years) {
+        for (j in industries.All_3) {
+            imports <- All_3.IM %>%
+                filter(Year == i,
+                       ProductDescription == j)
+            
+            exports <- All_3.X %>%
+                filter(Year == i,
+                       ProductDescription == j)
+            
+            diff <- abs(imports$TradeValue.in.1000.USD -
+                            exports$TradeValue.in.1000.USD)
+            
+            sum <- imports$TradeValue.in.1000.USD +
+                exports$TradeValue.in.1000.USD
+            
+            ratio <- diff / sum
+            
+            trade.All_3 <- trade.All_3 %>%
+                add_row(year = i,
+                        prod = j,
+                        ratio = ratio)
+            
+           
+        }
+    }
+})
+
+#SITC Rev 5
+t2 <- system.time({
+    for (i in years) {
+        for (j in industries.All_5) {
+            imports <- All_5.IM %>%
+                filter(Year == i,
+                       ProductDescription == j)
+            
+            exports <- All_5.X %>%
+                filter(Year == i,
+                       ProductDescription == j)
+            
+            diff <- abs(exports$TradeValue.in.1000.USD -
+                            imports$TradeValue.in.1000.USD)
+            
+            sum <- exports$TradeValue.in.1000.USD +
+                imports$TradeValue.in.1000.USD
+            
+            ratio <- diff / sum
+            
+            trade.All_5 <- trade.All_5 %>%
+                add_row(year = i,
+                        prod = j,
+                        ratio = ratio)
+            
+            
+        }
+    }
+})
+
+# Index
+GruberLloyd.All_3 <- aggregate(. ~ year, trade.All_3[-2], mean)
+GruberLloyd.All_3$index <- 1 - GruberLloyd.All_3$ratio
+
+GruberLloyd.All_5 <- aggregate(. ~ year, trade.All_5[-2], mean)
+GruberLloyd.All_5$index <- 1 - GruberLloyd.All_5$ratio
+
+```
+
+```{r,warning=F,echo=F,fig.align='center',fig.width=15,fig.height=10}
+#Plots
+colours <- c('SITC Revision 3' = 'tomato',
+             'SITC Revision 5' = 'dodgerblue')
+ggplot() +
+  geom_line(aes(
+    x = GruberLloyd.All_3$year,
+    y = GruberLloyd.All_3$index,
+    colour = 'SITC Revision 3'
+  )) + geom_point(aes(
+    x = GruberLloyd.All_3$year,
+    y = GruberLloyd.All_3$index,
+    colour = 'SITC Revision 3'
+  ))+
+  geom_line(aes(
+    x = GruberLloyd.All_5$year,
+    y = GruberLloyd.All_5$index,
+    colour = 'SITC Revision 5'
+  )) + geom_point(aes(
+    x = GruberLloyd.All_5$year,
+    y = GruberLloyd.All_5$index,
+    colour = 'SITC Revision 5'
+  ))+
+  labs(title = 'Grubel and Lloyd Index Weighted Average',
+       x = 'year',
+       y = NULL) +
+  scale_colour_manual(name = '', values = colours) +
+  scale_x_continuous(breaks = seq(1990, 2010, 2))+theme_minimal()
+```
+
+I will try to answer both questions by grouping statements together.
+
+We can see that since the enactment od NAFTA Mexico- US trade has become increasingly integrated. While Mexico tends o specialize in relatively labor-intensive sectors and US specializes in more capital-intensive sector, the specialization takes place not only across different industries, but also at very fine levels within the same industry.
+
+Mexico-US trade has taken place within large, specialized industries common to both countries. Take the automotive industry for example, this provides the best one of this kind of integration. We observe that in intra-industry trade, products are exported and re-imported at different stages of production, this implies that firms are able to produce at a lower average unit cost, thus increasing overall competitiveness in both international and domestic markets, reducing prices for domestic and foreign consumers.
+
+Mexico-US intra-industry trade has increased since 1990, and showing a constant tendency since 1994, meaning intra-industry trade sectors strengthened after NAFTA's enactment. Thus, we can infer that the integration of both economies resulted in the growth of intra-industry trade, implying a or positively correlated business cycle(between both countries). This two-way exchange implies each country is sending the other the same product, just at different stages of production.
+
+The top products traded by Mexico and US have not changed, implying that trade expansion may have less disruptive consequences in both countries as a result of the intra-industry nature of their trade relationship experienced over this period. This, may also bey an important factor in the economic synchronization of Mexican and US business cycles.
+
+The effects of trade liberalization are clearly seen, reallocation of resources where intra-industry trade is relatively more intense is noted. That is, we can actually see resources are reallocated to more productive sectors.
